@@ -1,0 +1,31 @@
+# Plugin-only OCI image: the image-volume payload consumed by JellyOps.
+#
+# Its filesystem ROOT *is* the contents of the Jellyfin plugin directory —
+# meta.json plus Shokofin.dll and the third-party client assemblies the host
+# does not provide (Microsoft.AspNetCore.SignalR.Client{,.Core}, the HTTP
+# connections client). The payload is exactly the published Shokofin v12
+# release artifact (shoko_<version>_for_12.0.zip), unzipped into `plugin/` by
+# docker/build-push.sh — nothing is compiled in this repo.
+#
+# JellyOps mounts this image read-only and, with `injection: imageVolumeCopy`,
+# copies the root into `/config/plugins/Shoko_<version>/` via a staging init
+# container before Jellyfin starts (so Jellyfin can write meta.json status, and
+# Shokofin can build its symlink VFS, in a writable plugin dir). No base image
+# is needed — image volumes mount the layer filesystem directly.
+FROM scratch
+
+# Files land at the image root; the JellyfinPlugin CR sets no subPath, so the
+# operator copies `<image>/. -> <plugins>/Shoko_<version>/`. This payload also
+# includes the jellyops standard hook scripts (firstrun.sh, bootstrap.sh, staged in
+# by docker/build-push.sh); the operator auto-runs them from the staged dir.
+COPY plugin/ /
+
+# Self-description labels (JellyOps spec §5.3). The operator reads identity from
+# the CR's spec.meta, but these let the meta.json/label fallback resolve the
+# plugin when spec.meta is omitted, and document the payload. Keep them in sync
+# with the release the payload came from (see docker/build-push.sh).
+LABEL io.jellyops.plugin.guid="5216ccbf-d24a-4eb3-8a7e-7da4230b7052" \
+      io.jellyops.plugin.name="Shoko" \
+      io.jellyops.plugin.version="6.0.5.0" \
+      io.jellyops.plugin.targetAbi="12.0.0.0" \
+      io.jellyops.plugin.framework="net10.0"

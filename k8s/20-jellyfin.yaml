@@ -1,0 +1,46 @@
+# The Jellyfin instance. JellyOps builds its Deployment/Service and injects the
+# Shokofin plugin (see 30-jellyfinplugin.yaml) as an image volume.
+#
+# spec.image MUST be a Jellyfin v12 (.NET 10) build — the CrunchyMonkies fork —
+# because the Shokofin payload targets ABI 12.0.0.0. Stock jellyfin/jellyfin:latest
+# is 10.x and would fail the operator's ABI gate.
+#
+# The fork image is published by jellyfin-src/.github/workflows/crunchymonkies-publish.yml
+# to ghcr.io/crunchymonkies/jellyfin. Pin a specific tag or @sha256 digest for
+# reproducibility. NOTE: the fork runs headless (--nowebclient); if you need the
+# web UI, add a `spec.web` block pointing at a matching jellyfin-web image.
+apiVersion: jellyfin.jellyops.io/v1alpha1
+kind: Jellyfin
+metadata:
+  name: home-media
+  namespace: media
+spec:
+  image: ghcr.io/crunchymonkies/jellyfin:latest # v12 fork — pin a tag/@sha256 for production
+  replicas: 1
+  storage:
+    config:
+      size: 10Gi
+      # storageClassName: <your-rwo-storageclass>   # RWO; Jellyfin /config (single writer)
+    media:
+      # Mounted at /media — the Shoko Server workload mounts the SAME claim at the
+      # SAME path (identity path mapping, §7). The operator auto-mounts this into
+      # companion workloads read-only.
+      - name: library
+        existingClaim: media-library
+        mountPath: /media
+        readOnly: true
+        library:
+          name: Anime
+          collectionType: tvshows
+  # API bootstrap lets the operator run the first-run wizard and register the
+  # library above. Optional — drop this block to configure Jellyfin by hand.
+  api:
+    mode: bootstrap
+    generatedSecretName: home-media-api
+    manageLibraries: true
+    refreshLibraryOnChange: true
+  service:
+    type: ClusterIP
+  pluginSelector:
+    matchLabels:
+      jellyfin.jellyops.io/instance: home-media

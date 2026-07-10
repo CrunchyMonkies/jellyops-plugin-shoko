@@ -1,0 +1,6 @@
+# oh-my-claudecode tooling state (session-scoped; not project content)
+.omc/
+
+# Plugin payload assembled at build time (downloaded release zip + baked hooks)
+/plugin/
+*.zip

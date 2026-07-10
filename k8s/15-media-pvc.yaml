@@ -1,0 +1,20 @@
+# Shared anime media library, mounted by BOTH the Jellyfin pod and the Shoko
+# Server pod at the SAME path (/media). Shoko Server indexes files by absolute
+# path and Shokofin resolves them back to Jellyfin using those paths, so the two
+# MUST see identical paths (identity path mapping, spec §7).
+#
+# This forces ReadWriteMany so multiple pods can mount it. Replace storageClassName
+# with an RWX-capable class in your cluster (NFS, CephFS, Longhorn RWX, etc.), and
+# point it at your existing, Shoko-indexed media.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: media-library
+  namespace: media
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: REPLACE_ME_RWX_STORAGECLASS
+  resources:
+    requests:
+      storage: 100Gi

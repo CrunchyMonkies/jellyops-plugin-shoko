@@ -1,0 +1,136 @@
+# The Shokofin plugin, delivered by JellyOps to the home-media instance — EMBEDDED
+# mode: this CR also runs a Shoko Server as a companion workload.
+#
+# - pluginImage: the plugin-only image-volume payload (meta.json + Shokofin.dll +
+#   SignalR client DLLs at root). injection: imageVolumeCopy — staged into a
+#   writable /config/plugins dir so Jellyfin can write meta.json status and
+#   Shokofin can build its symlink VFS at runtime.
+# - install: supplies the helper image + env/secrets to the standard hooks that
+#   jellyops auto-runs from the plugin image (firstrun.sh seeds Shokofin.xml + mints
+#   the API key once; bootstrap.sh re-asserts the connection every start). The jellyops
+#   CRD has no spec.config field, so this baked-hook seed replaces it. Credentials
+#   come from the shoko-creds Secret (see 35-shoko-credentials.yaml). fail-open.
+# - services: a ClusterIP Service targeting the shoko-server workload, exposing its
+#   REST + SignalR port :8111 (Shokofin dials http://shoko-server.media.svc:8111).
+# - workloads: the Shoko Server itself (upstream image). The operator AUTO-MOUNTS
+#   the bound Jellyfin instance's media into it (read-only, same path /media) — only
+#   Shoko's own config PVC + /dev/shm are declared here.
+#
+# The pluginImage reference is pinned by digest — replace the placeholder with the
+# @sha256 value printed by docker/build-push.sh.
+apiVersion: jellyfin.jellyops.io/v1alpha1
+kind: JellyfinPlugin
+metadata:
+  name: shoko
+  namespace: media
+  labels:
+    jellyfin.jellyops.io/instance: home-media
+spec:
+  jellyfinRef:
+    name: home-media
+  pluginImage:
+    reference: ghcr.io/crunchymonkies/jellyops-plugin-shoko/plugin@sha256:REPLACE_ME_WITH_DIGEST
+    pullPolicy: IfNotPresent
+  meta:
+    guid: 5216ccbf-d24a-4eb3-8a7e-7da4230b7052
+    name: "Shoko"
+    version: "6.0.5.0" # -> on-disk folder Shoko_6.0.5.0
+    targetAbi: "12.0.0.0"
+  injection: imageVolumeCopy
+  install:
+    # No inline script: jellyops auto-runs the standard hook scripts baked into the
+    # plugin image — firstrun.sh (once per instance) seeds Shokofin.xml + mints the
+    # API key; bootstrap.sh (every start) re-asserts the connection. This block only
+    # provides the helper image and the env/secrets those hooks read. Canonical
+    # sources: scripts/firstrun.sh and scripts/bootstrap.sh.
+    image:
+      reference: alpine:3
+    env:
+      - name: SHOKO_URL
+        value: http://shoko-server.media.svc:8111
+      # Public URL for deep links shown in the UI (optional; leave unset for none).
+      # - name: SHOKO_PUBLIC_URL
+      #   value: https://shoko.example.com
+      - name: ANIDB_USERNAME
+        valueFrom: { secretKeyRef: { name: shoko-creds, key: anidb-username, optional: true } }
+      - name: ANIDB_PASSWORD
+        valueFrom: { secretKeyRef: { name: shoko-creds, key: anidb-password, optional: true } }
+      - name: SHOKO_USERNAME
+        valueFrom: { secretKeyRef: { name: shoko-creds, key: shoko-username, optional: true } }
+      - name: SHOKO_PASSWORD
+        valueFrom: { secretKeyRef: { name: shoko-creds, key: shoko-password, optional: true } }
+      - name: SHOKO_APIKEY
+        valueFrom: { secretKeyRef: { name: shoko-creds, key: shoko-apikey, optional: true } }
+      # ── Optional expanded Shokofin settings ──────────────────────────────
+      # Any unset var is omitted from Shokofin.xml and keeps Shokofin's default.
+      # Library structure:
+      # - { name: SHOKO_LIBRARY_STRUCTURE, value: "groups" }   # anidb | groups | tmdb
+      # - { name: SHOKO_SEASON_ORDERING, value: "Default" }     # None|Default|ReleaseDate|Chronological|ChronologicalIgnoreIndirect
+      # - { name: SHOKO_SPECIALS_PLACEMENT, value: "AfterSeason" }
+      # - { name: SHOKO_SEPARATE_MOVIES, value: "true" }
+      # VFS / operation mode:
+      # - { name: SHOKO_LIBRARY_OPERATION_MODE, value: "VFS" }  # VFS | Strict
+      # - { name: SHOKO_VFS_THREADS, value: "4" }
+      # - { name: SHOKO_VFS_LOCATION, value: "Default" }        # Default | Custom
+      # Third-party IDs & providers:
+      # - { name: SHOKO_ADD_ANIDB_ID, value: "true" }
+      # - { name: SHOKO_ADD_TMDB_ID, value: "false" }
+      # - { name: SHOKO_ADD_TVDB_ID, value: "false" }
+      # Tags / genres / collections:
+      # - { name: SHOKO_HIDE_UNVERIFIED_TAGS, value: "true" }
+      # - { name: SHOKO_TAG_MIN_WEIGHT, value: "Four" }          # Weightless|One|..|Six
+      # - { name: SHOKO_AUTO_RECONSTRUCT_COLLECTIONS, value: "true" }
+      # - { name: SHOKO_COLLECTION_GROUPING, value: "None" }     # None | Movies | ...
+      # See scripts/firstrun.sh for the full list of SHOKO_* setting vars.
+    # No runOnce: the operator marker-gates firstrun.sh (once per instance) while
+    # bootstrap.sh runs every start to re-assert the connection.
+    failurePolicy: Ignore # Jellyfin still boots if a hook errors (fail-open)
+    timeoutSeconds: 300
+  services:
+    - name: shoko-server
+      selector: workload:shoko-server # -> the Shoko Server pods
+      ports:
+        - name: http
+          port: 8111
+          targetPort: 8111
+  workloads:
+    - name: shoko-server
+      image:
+        reference: ghcr.io/shokoanime/server:latest # pin @sha256 for production
+        pullPolicy: IfNotPresent
+      replicas: 1 # Shoko Server is single-writer (SQLite by default) — do not scale
+      ports:
+        - name: http
+          containerPort: 8111
+      env:
+        - { name: PUID, value: "1000" }
+        - { name: PGID, value: "100" }
+        - { name: TZ, value: "Etc/UTC" }
+      resources:
+        requests:
+          cpu: "250m"
+          memory: 512Mi
+      # Gate readiness (and the WorkloadsReady condition) on Shoko answering :8111.
+      readinessProbe:
+        httpGet:
+          path: /api/v3/Init/Status
+          port: 8111
+        initialDelaySeconds: 10
+        periodSeconds: 10
+      # Media is auto-mounted by the operator from the bound Jellyfin instance's
+      # spec.storage.media (read-only, same path /media). Only Shoko's own state
+      # (config PVC) and a hashing scratch (/dev/shm) are declared here.
+      volumeMounts:
+        - name: shoko-config
+          mountPath: /home/shoko/.shoko
+        - name: shm
+          mountPath: /dev/shm
+      volumes:
+        - name: shoko-config
+          persistentVolumeClaim:
+            claimName: shoko-config
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
+      terminationGracePeriodSeconds: 60 # let Shoko flush its DB on SIGTERM

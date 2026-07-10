@@ -1,0 +1,18 @@
+# Shoko Server's persistent state: SQLite database, configuration, and downloaded
+# images live under /home/shoko/.shoko. This is REQUIRED in embedded mode —
+# losing it forces a full re-index/re-hash. Single writer (Shoko Server is
+# replicas: 1), so ReadWriteOnce is sufficient.
+#
+# Referenced by the shoko-server workload's volumes in k8s/30-jellyfinplugin.yaml.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shoko-config
+  namespace: media
+spec:
+  accessModes:
+    - ReadWriteOnce
+  # storageClassName: REPLACE_ME_RWO_STORAGECLASS
+  resources:
+    requests:
+      storage: 20Gi

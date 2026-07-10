@@ -1,0 +1,26 @@
+# OPTIONAL (spec §10). Confine the Shoko Server port (:8111) to the Jellyfin pod
+# (Shokofin is the only client — it dials Shoko over REST + SignalR). Requires a CNI
+# that enforces NetworkPolicy. Delete this file if not wanted, or add another
+# `from` selector to also allow an ingress controller if you expose the Shoko web UI.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: shoko-server-jellyfin-only
+  namespace: media
+spec:
+  podSelector:
+    # The operator labels companion-workload pods with the plugin + workload name.
+    matchLabels:
+      jellyfin.jellyops.io/plugin: shoko
+      jellyfin.jellyops.io/workload: shoko-server
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: jellyfin
+              app.kubernetes.io/instance: home-media
+      ports:
+        - protocol: TCP
+          port: 8111

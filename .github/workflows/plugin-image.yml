@@ -1,0 +1,99 @@
+name: Build & Publish Plugin Image
+
+# Packages the prebuilt Shokofin v12 release artifact (shoko_*_for_12.0.zip) into a
+# FROM-scratch image-volume payload and pushes it to GHCR. The image is built with
+# provenance disabled so it is a single plain manifest the kubelet mounts cleanly.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      shokofin_tag:
+        description: "Shokofin release tag to package (e.g. v6.0.5)"
+        required: true
+        default: "v6.0.5"
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}/plugin
+  SHOKOFIN_REPO: CrunchyMonkies/Shokofin
+  SHOKOFIN_TAG: ${{ github.event.inputs.shokofin_tag || 'v6.0.5' }}
+  SHOKOFIN_ASSET: "shoko_*_for_12.0.zip"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Shokofin release payload
+        # GITHUB_TOKEN can read another repo's release assets when that repo is public.
+        # If Shokofin is private, replace with a PAT that can read it (secrets.SHOKOFIN_TOKEN).
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p plugin
+          gh release download "${SHOKOFIN_TAG}" \
+            --repo "${SHOKOFIN_REPO}" \
+            --pattern "${SHOKOFIN_ASSET}" \
+            --dir . --clobber
+          unzip -o -q shoko_*_for_12.0.zip -d plugin
+          # Bake the jellyops standard hook scripts into the payload (auto-run by the
+          # operator: firstrun.sh once, bootstrap.sh every start).
+          cp scripts/firstrun.sh scripts/bootstrap.sh plugin/
+          chmod +x plugin/firstrun.sh plugin/bootstrap.sh
+          test -f plugin/Shokofin.dll
+          test -f plugin/meta.json
+          test -f plugin/firstrun.sh
+          test -f plugin/bootstrap.sh
+          echo "Payload:"; ls -1 plugin
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
+
+      - name: Build & push (provenance disabled for image volumes)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.plugin
+          push: true
+          provenance: false
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Summary
+        run: |
+          {
+            echo "### Shokofin plugin image published"
+            echo ""
+            echo "- Payload: \`${SHOKOFIN_REPO}\` @ \`${SHOKOFIN_TAG}\`"
+            echo "- Digest: \`${{ steps.build.outputs.digest }}\`"
+            echo ""
+            echo "Pin in \`k8s/30-jellyfinplugin.yaml\` (spec.pluginImage.reference):"
+            echo ""
+            echo '```'
+            echo "${IMAGE}@${{ steps.build.outputs.digest }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
