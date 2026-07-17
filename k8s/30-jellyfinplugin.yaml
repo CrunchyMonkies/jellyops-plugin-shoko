@@ -29,7 +29,7 @@ spec:
   jellyfinRef:
     name: home-media
   pluginImage:
-    reference: ghcr.io/crunchymonkies/jellyops-plugin-shoko/plugin@sha256:REPLACE_ME_WITH_DIGEST
+    reference: ghcr.io/crunchymonkies/jellyops-plugin-shoko/plugin@sha256:eec1314a931ddafa2611320c924d8a2cb84882fea4330da4225bbf66d4f67782
     pullPolicy: IfNotPresent
   meta:
     guid: 5216ccbf-d24a-4eb3-8a7e-7da4230b7052
