@@ -3,8 +3,8 @@
 # Build and push the Shokofin plugin image-volume payload for JellyOps.
 #
 # The payload is NOT compiled here — it is the prebuilt Shokofin v12 (.NET 10)
-# release artifact `shoko_<version>_for_12.0.zip` downloaded from the
-# CrunchyMonkies/Shokofin GitHub release, unzipped into the build context's
+# release artifact `shoko_<version>_for_12.y.z.zip` downloaded from the
+# ShokoAnime/Shokofin GitHub release, unzipped into the build context's
 # `plugin/` dir, and packaged into a `FROM scratch` image whose root IS the
 # Jellyfin plugin directory (Shokofin.dll + SignalR client DLLs + meta.json).
 #
@@ -16,9 +16,9 @@
 #
 # Environment overrides:
 #   REGISTRY          image repo prefix   (default: ghcr.io/crunchymonkies/jellyops-plugin-shoko)
-#   SHOKOFIN_REPO     release source repo (default: CrunchyMonkies/Shokofin)
-#   SHOKOFIN_TAG      release tag         (default: v6.0.5)
-#   SHOKOFIN_ASSET    zip glob            (default: shoko_*_for_12.0.zip)
+#   SHOKOFIN_REPO     release source repo (default: ShokoAnime/Shokofin)
+#   SHOKOFIN_TAG      release tag         (default: v6.0.5-dev.40)
+#   SHOKOFIN_ASSET    zip glob            (default: shoko_*_for_12.y.z.zip)
 #   PUSH              push to registry    (default: true; set PUSH=false to build only)
 set -euo pipefail
 
@@ -26,9 +26,9 @@ REGISTRY="${REGISTRY:-ghcr.io/crunchymonkies/jellyops-plugin-shoko}"
 # Full image repo. Defaults to <REGISTRY>/plugin; override IMAGE to rename (e.g. to
 # publish to Harbor as harbor.bne1.ouchi.com.au/applications/shokofin-plugin).
 IMAGE="${IMAGE:-${REGISTRY}/plugin}"
-SHOKOFIN_REPO="${SHOKOFIN_REPO:-CrunchyMonkies/Shokofin}"
-SHOKOFIN_TAG="${SHOKOFIN_TAG:-v6.0.5}"
-SHOKOFIN_ASSET="${SHOKOFIN_ASSET:-shoko_*_for_12.0.zip}"
+SHOKOFIN_REPO="${SHOKOFIN_REPO:-ShokoAnime/Shokofin}"
+SHOKOFIN_TAG="${SHOKOFIN_TAG:-v6.0.5-dev.40}"
+SHOKOFIN_ASSET="${SHOKOFIN_ASSET:-shoko_*_for_12.y.z.zip}"
 PUSH="${PUSH:-true}"
 # Rolling calendar tag; override by passing an explicit TAG argument.
 TAG="${1:-$(date +%Y%m).$(date +%d).1}"
