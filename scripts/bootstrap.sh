@@ -35,6 +35,10 @@ xml_escape() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>
 set_elem() {
   if grep -q "<$1>" "$CFG"; then
     sed -i "s#<$1>[^<]*</$1>#<$1>$2</$1>#" "$CFG"
+  elif grep -q "<$1 */>" "$CFG"; then
+    # Jellyfin's XmlSerializer writes empty strings as <Tag />; appending a second element
+    # instead would be dropped on the plugin's next config save.
+    sed -i "s#<$1 */>#<$1>$2</$1>#" "$CFG"
   else
     sed -i "s#</PluginConfiguration>#  <$1>$2</$1>\n</PluginConfiguration>#" "$CFG"
   fi
