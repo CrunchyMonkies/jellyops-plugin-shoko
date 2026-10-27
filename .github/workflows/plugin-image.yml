@@ -1,6 +1,6 @@
 name: Build & Publish Plugin Image
 
-# Packages the prebuilt Shokofin v12 release artifact (shoko_*_for_12.0.zip) into a
+# Packages the prebuilt Shokofin v12 release artifact (shoko_*_for_12.y.z.zip) into a
 # FROM-scratch image-volume payload and pushes it to GHCR. The image is built with
 # provenance disabled so it is a single plain manifest the kubelet mounts cleanly.
 
@@ -11,9 +11,9 @@ on:
   workflow_dispatch:
     inputs:
       shokofin_tag:
-        description: "Shokofin release tag to package (e.g. v6.0.5)"
+        description: "Shokofin release tag to package (e.g. v6.0.5-dev.40)"
         required: true
-        default: "v6.0.5"
+        default: "v6.0.5-dev.40"
 
 permissions:
   contents: read
@@ -21,9 +21,9 @@ permissions:
 
 env:
   IMAGE: ghcr.io/${{ github.repository }}/plugin
-  SHOKOFIN_REPO: CrunchyMonkies/Shokofin
-  SHOKOFIN_TAG: ${{ github.event.inputs.shokofin_tag || 'v6.0.5' }}
-  SHOKOFIN_ASSET: "shoko_*_for_12.0.zip"
+  SHOKOFIN_REPO: ShokoAnime/Shokofin
+  SHOKOFIN_TAG: ${{ github.event.inputs.shokofin_tag || 'v6.0.5-dev.40' }}
+  SHOKOFIN_ASSET: "shoko_*_for_12.y.z.zip"
 
 jobs:
   build:
@@ -43,7 +43,7 @@ jobs:
             --repo "${SHOKOFIN_REPO}" \
             --pattern "${SHOKOFIN_ASSET}" \
             --dir . --clobber
-          unzip -o -q shoko_*_for_12.0.zip -d plugin
+          unzip -o -q shoko_*_for_12.y.z.zip -d plugin
           # Bake the jellyops standard hook scripts into the payload (auto-run by the
           # operator: firstrun.sh once, bootstrap.sh every start).
           cp scripts/firstrun.sh scripts/bootstrap.sh plugin/

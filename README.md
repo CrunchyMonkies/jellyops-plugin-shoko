@@ -44,19 +44,18 @@ docs/specification.md    design contract
 
 ## Requirements
 
-- **Jellyfin v12 fork** server image — `ghcr.io/crunchymonkies/jellyfin` (built by the
-  jellyfin-src `crunchymonkies-publish.yml` workflow). Shokofin targets ABI `12.0.0.0`;
-  stock Jellyfin 10.x fails the operator's ABI gate.
+- **Jellyfin v12** server image (any build with server version `>= 12.0.0`, e.g. upstream
+  v12.3). Shokofin targets ABI `12.0.0.0`; stock Jellyfin 10.x fails the operator's ABI gate.
 - Kubernetes **≥ 1.33** with image volumes enabled; the JellyOps operator + CRDs installed.
 
 ## Build the plugin image
 
-The payload is **not compiled here** — it is the published Shokofin v12 release artifact
-(`shoko_<version>_for_12.0.zip`), repackaged into a `FROM scratch` image whose root is the
+The payload is **not compiled here** — it is upstream Shokofin's published v12 release artifact
+(`shoko_<version>_for_12.y.z.zip`), repackaged into a `FROM scratch` image whose root is the
 Jellyfin plugin directory.
 
 ```sh
-# Requires: docker, gh (authenticated). Defaults: v6.0.5 from CrunchyMonkies/Shokofin,
+# Requires: docker, gh (authenticated). Defaults: v6.0.5-dev.40 from ShokoAnime/Shokofin,
 # pushed to ghcr.io/crunchymonkies/jellyops-plugin-shoko/plugin
 docker/build-push.sh
 # Build locally without pushing:

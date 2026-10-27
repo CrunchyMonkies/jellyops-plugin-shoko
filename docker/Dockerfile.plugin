@@ -4,7 +4,7 @@
 # meta.json plus Shokofin.dll and the third-party client assemblies the host
 # does not provide (Microsoft.AspNetCore.SignalR.Client{,.Core}, the HTTP
 # connections client). The payload is exactly the published Shokofin v12
-# release artifact (shoko_<version>_for_12.0.zip), unzipped into `plugin/` by
+# release artifact (shoko_<version>_for_12.y.z.zip), unzipped into `plugin/` by
 # docker/build-push.sh — nothing is compiled in this repo.
 #
 # JellyOps mounts this image read-only and, with `injection: imageVolumeCopy`,
@@ -23,9 +23,11 @@ COPY plugin/ /
 # Self-description labels (JellyOps spec §5.3). The operator reads identity from
 # the CR's spec.meta, but these let the meta.json/label fallback resolve the
 # plugin when spec.meta is omitted, and document the payload. Keep them in sync
-# with the release the payload came from (see docker/build-push.sh).
+# with the release the payload came from (see docker/build-push.sh). version and
+# targetAbi come from the payload's meta.json; meta.json has no framework field, so
+# framework is the TargetFramework baked into Shokofin.dll (.NETCoreApp v10.0).
 LABEL io.jellyops.plugin.guid="5216ccbf-d24a-4eb3-8a7e-7da4230b7052" \
       io.jellyops.plugin.name="Shoko" \
-      io.jellyops.plugin.version="6.0.5.0" \
+      io.jellyops.plugin.version="6.0.5.4012" \
       io.jellyops.plugin.targetAbi="12.0.0.0" \
       io.jellyops.plugin.framework="net10.0"

@@ -60,7 +60,7 @@ is the authority for how those fields are reconciled.
   only wires them in.
 - **Not a stock-10.x package.** This package targets **Jellyfin v12** and, like jellycode,
   **requires a v12 / .NET 10 server image** (`Jellyfin.spec.image` overridden) plus a
-  **v12-rebuilt Shokofin** (ABI `12.0.0.0`, `net10.0`). Sourcing/maintaining the v12
+  **v12 build of Shokofin** (ABI `12.0.0.0`, `net10.0`). Sourcing/maintaining the v12
   Jellyfin server image is out of scope — that is the instance's prerequisite, documented
   in §4.4.
 
@@ -318,12 +318,12 @@ spec §4.4) — the bound instance is **not** stock 10.x:
 - **Generic ABI gate.** The operator validates `meta.targetAbi (12.0.0.0)` against the
   running server. On a stock 10.x server the gate marks the Shoko plugin `Failed` and emits
   an event — it never mounts an unloadable plugin, and never takes the instance down.
-- **A v12-rebuilt Shokofin is required.** Upstream Shokofin's `dev` branch still targets
-  `net9;net8` against `Jellyfin.Controller 10.11.11 / 10.10.7` with `targetAbi 1.0.0.0`
-  (`../Shokofin/Shokofin/Shokofin.csproj`, `../Shokofin/build.yaml`) — that build **will
-  not load on v12**. The package therefore consumes a Shokofin recompiled for v12
-  (`TargetFramework net10.0`, the v12 `Jellyfin.Controller`, `targetAbi 12.0.0.0`); see
-  §5.1. Until upstream ships v12 support, producing this build is part of packaging.
+- **A v12 build of Shokofin is required.** Upstream Shokofin `dev` now multi-targets
+  `net10.0;net9.0;net8` and publishes a v12 artifact (`shoko_<version>_for_12.y.z.zip`,
+  `TargetFramework net10.0` against `Jellyfin.Controller 12.0.0`, `targetAbi 12.0.0.0`) on
+  its dev prereleases. The package consumes that upstream artifact (currently
+  `v6.0.5-dev.40`, meta.json version `6.0.5.4012`); see §5.1. No upstream *stable* release
+  ships a v12 artifact yet (stable `v6.0.5` is 10.10/10.11 only).
 
 ---
 
@@ -340,12 +340,11 @@ directory — the same contract as any jellyops plugin (`../jellyops/docs/specif
   recommended convention.)
 - The on-disk folder the operator mounts is **`Shoko_<version>`**, derived from
   `meta.name`/`meta.version` — matching how Jellyfin names plugin folders.
-- Build artifacts come from a **v12 build of Shokofin** — the same `Shokofin.dll` (+ deps)
-  the project's build produces (`../Shokofin/build.yaml`), but recompiled for
-  `TargetFramework net10.0` against the **v12 `Jellyfin.Controller`**, with `build.yaml`
-  `targetAbi` bumped to `12.0.0.0`. The package repackages that output into an image layer
-  instead of a zip. (Upstream `dev` targets `net9;net8` / ABI `1.0.0.0` today — §4.4 —
-  so this v12 build is produced as part of packaging until upstream ships it.)
+- Build artifacts come from upstream Shokofin's **v12 release artifact**
+  (`ShokoAnime/Shokofin`, `shoko_<version>_for_12.y.z.zip`): `Shokofin.dll` built for
+  `TargetFramework net10.0` against **`Jellyfin.Controller 12.0.0`**, `targetAbi 12.0.0.0`,
+  plus the SignalR client assemblies it ships. The package repackages that zip into an
+  image layer unchanged; nothing is compiled here.
 
 ### 5.2 Injection mode — `imageVolumeCopy` (required)
 
@@ -544,9 +543,8 @@ The CR still wires all networking and storage; only credential entry is manual.
 - **ABI / framework** — this package's Shokofin is built for **Jellyfin v12**:
   `targetAbi 12.0.0.0`, framework `net10.0`, compiled against the v12 `Jellyfin.Controller`.
   The bound `Jellyfin` instance **must** be a v12 / .NET 10 server image
-  (`Jellyfin.spec.image` overridden — §4.4). For reference, upstream Shokofin `dev` currently
-  targets `net9;net8` / `Jellyfin.Controller 10.11.11`/`10.10.7` / ABI `1.0.0.0`
-  (`../Shokofin/Shokofin/Shokofin.csproj`) — a 10.x build, not compatible with v12.
+  (`Jellyfin.spec.image` overridden — §4.4). The artifact is upstream Shokofin's
+  `for_12.y.z` build (`net10.0;net9.0;net8` multi-target, `Jellyfin.Controller 12.0.0`).
 - **Shokofin ↔ Shoko Server** — pin a tested pair (Shokofin version ↔ Shoko Server version)
   and upgrade them together; Shokofin's API expectations track Shoko Server's REST/SignalR
   surface.
@@ -572,10 +570,9 @@ The CR still wires all networking and storage; only credential entry is manual.
 
 ## 14. Open Questions / Risks
 
-- **v12 Shokofin availability** — no upstream Shokofin build targets Jellyfin v12 / `net10.0`
-  yet (`dev` is `net9;net8` / ABI `1.0.0.0`). The package depends on a v12 recompile (§5.1);
-  its stability tracks how cleanly Shokofin's source ports to the v12 `Jellyfin.Controller`
-  API surface. Any breaking API change upstream between now and v12 GA may require patches.
+- **v12 Shokofin availability** — upstream Shokofin ships v12 (`net10.0`) builds only on
+  `dev` prereleases so far (packaged: `v6.0.5-dev.40`); no stable release carries a
+  `for_12.y.z` artifact yet. Switch to the first stable release that does.
 - **v12 ABI churn** — Jellyfin v12 is pre-release; its plugin ABI (`12.0.0.0`) and .NET 10
   runtime can still shift. Pin the Shokofin plugin image, the Shoko Server image, **and** the
   v12 Jellyfin server image by digest, and re-validate the ABI gate on every server bump.
