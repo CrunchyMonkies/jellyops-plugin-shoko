@@ -19,7 +19,7 @@ spec:
     # Upstream ShokoAnime/Shokofin v6.0.5-dev.40 (meta.json version 6.0.5.4012).
     # Re-pin the digest below to the image built from that payload before applying;
     # meta.version must match the payload's meta.json.
-    reference: ghcr.io/crunchymonkies/jellyops-plugin-shoko/plugin@sha256:eec1314a931ddafa2611320c924d8a2cb84882fea4330da4225bbf66d4f67782
+    reference: ghcr.io/crunchymonkies/jellyops-plugin-shoko/plugin@sha256:a84ce0330e54a32023ee5ed687a6adaa21b23a558f78db024bb1116205883ea9
     pullPolicy: IfNotPresent
   meta:
     guid: 5216ccbf-d24a-4eb3-8a7e-7da4230b7052
